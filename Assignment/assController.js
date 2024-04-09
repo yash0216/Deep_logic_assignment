@@ -1,11 +1,8 @@
 const https = require("https");
 
-// Function to fetch data from "https://time.com" URL and it returns a Promise
-// containing the JSON array of title and link
 function fetchData() {
   return new Promise((resolve, reject) => {
     const url = "https://time.com";
-    const result = [];
 
     https
       .get(url, (res) => {
@@ -16,23 +13,32 @@ function fetchData() {
         });
 
         res.on("end", () => {
-          // Initialize the string containing HTML to be extracted from response
+          const result = [];
+
+          // Find index of start and end of latest-stories section
           const startString =
             '<div class="partial latest-stories" data-module_name="Latest Stories"';
-          const endString = "</ul>";
-
-          // Find the start and end indices
           const startIndex = data.indexOf(startString);
-          const endIndex = data.indexOf(endString, startIndex);
+          if (startIndex === -1) {
+            reject("Start string not found");
+            return;
+          }
+          const endIndex = data.indexOf("</ul>", startIndex);
+          if (endIndex === -1) {
+            reject("End string not found");
+            return;
+          }
 
+          // Extract latest-stories section
           const latestStoriesSection = data.substring(startIndex, endIndex);
 
-          // Extract individual stories
-          const stories = latestStoriesSection.match(
-            /<li class="latest-stories__item">(.*?)<\/li>/gs
-          );
+          // Match each story within latest-stories section
+          const storyRegex = /<li class="latest-stories__item">(.*?)<\/li>/gs;
+          let match;
+          while ((match = storyRegex.exec(latestStoriesSection)) !== null) {
+            const story = match[1];
 
-          stories.forEach((story) => {
+            // Extract title and link from each story
             const titleMatch = story.match(
               /<h3 class="latest-stories__item-headline">(.*?)<\/h3>/
             );
@@ -40,8 +46,8 @@ function fetchData() {
             const linkMatch = story.match(/<a href="(.*?)">/);
             const link = linkMatch ? "https://time.com" + linkMatch[1] : "";
 
-            result.push({ title: title, link: link });
-          });
+            result.push({ title, link });
+          }
 
           resolve(result);
         });
